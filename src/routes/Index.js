@@ -7,46 +7,43 @@ import { GetQueryString } from '../utils/utils';
 @connect(() => ({}))
 export default class Index extends React.Component {
   state = {
-    isOk: true,
-    isGz: Number(window.localStorage.getItem('isGz')),
-    openid: window.localStorage.getItem('openid'),
+    openid: '未获取',
+    data: null,
   }
   componentWillMount() {
-    const { isGz, openid } = this.state;
     const search = this.props.location.search;
-    if (isGz !== 1 || !openid) { // 有参数不存在
-      if (search === '') { // search  没有参数
-        window.location.href = `http://211.159.149.135:8011/wx/wx/getOpenid?url=${window.location.origin + window.location.pathname}`;
-      } else if (search.length) { // search 有参数
-        const getIsGz = Number(GetQueryString('is_gz', search));
-        const getOpenid = GetQueryString('openid', search);
-        if (getIsGz !== 1 || !getOpenid) {
-          window.location.href = `http://211.159.149.135:8011/wx/wx/getOpenid?url=${window.location.origin + window.location.pathname}`;
-        } else {
-          window.localStorage.setItem('isGz', getIsGz);
-          window.localStorage.setItem('openid', getOpenid);
-          this.setState({
-            isGz: Number(window.localStorage.getItem('isGz')),
-            openid: window.localStorage.getItem('openid'),
-          });
-        }
-      }
+    const openid = window.localStorage.getItem('openid');
+    const code = GetQueryString('code', search);
+    if (!openid && !code) {
+      window.location.href = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=wx232e496dad0fbb40&redirect_uri=${encodeURIComponent('http://md.amyas.cn')}&response_type=code&scope=snsapi_base&state=123#wechat_redirect`;
+    } else if (code) {
+      axios.get('http://www.amyas.cn/wx/wx/userInfo', {
+        params: {
+          code,
+        },
+      }).then((response) => {
+        const data = response.data.data;
+        window.localStorage.setItem('openid', data.openid);
+        this.setState({
+          openid: data.openid,
+        });
+      });
     }
   }
   render() {
-    const { isOk, isGz, openid } = this.state;
-    if (!isOk) {
-      return <div>请联系管理员：参数错误</div>;
-    }
-    if (isGz !== 1) {
-      return <div>请联系管理员：未能关注公众号</div>;
-    }
-    if (openid === null || openid === undefined) {
-      return <div>请联系管理员：未能获取openid</div>;
-    }
     return (
       <div>
         <h1>商城首页</h1>
+        <button
+          onClick={() => {
+            window.localStorage.clear();
+            this.setState({
+              openid: '已清除',
+            });
+          }}
+        >清除缓存</button>
+        <p>openid:{this.state.openid}</p>
+        <p>支付获取到的参数：{this.state.data && JSON.stringify(this.state.data)}</p>
         <button
           onClick={() => {
             axios.post('http://211.159.149.135:8011/wx/wx/getjsapi', {
@@ -54,8 +51,8 @@ export default class Index extends React.Component {
             })
               .then((response) => {
                 const wxConfig = response.data.data;
-                wx.config(wxConfig);
-                wx.ready(() => {
+                window.wx.config(wxConfig);
+                window.wx.ready(() => {
                   [
                     'onMenuShareQQ',
                     'onMenuShareAppMessage',
@@ -63,7 +60,7 @@ export default class Index extends React.Component {
                     'onMenuShareQZone',
                     'onMenuShareTimeline',
                   ].forEach((e) => {
-                    wx[e]({
+                    window.wx[e]({
                       title: '分享自定义标题',
                       link: 'http://md.amyas.cn/',
                       imgUrl: 'https://www.baidu.com/img/bd_logo1.png',
@@ -79,7 +76,47 @@ export default class Index extends React.Component {
                 });
               });
           }}
-        >获取JSAPI</button>
+        >1.获取JSAPI</button>
+        <button
+          onClick={() => {
+            const params = {
+              openid: window.localStorage.getItem('openid'),
+              total_fee: 0.01,
+              goods: JSON.stringify([{
+                id: 7,
+                attr: JSON.stringify([{ type: 'radio', classify: '口味', list: ['微辣'] }, { type: 'check', classify: '特殊需求', list: ['不要香菜', '不要葱花'] }]),
+              }]),
+              content: '老板！！！上餐了！！！！！！！',
+            };
+            axios.get('http://211.159.149.135:8011/wx/wx/getPay', { params })
+              .then((response) => {
+                const data = response.data.data;
+                this.setState({
+                  data,
+                });
+                data.timestamp = data.timeStamp.toString();
+                delete data.timeStamp;
+                window.wx.ready(() => {
+                  alert('开始支付');
+                  window.wx.chooseWXPay({
+                    timestamp: data.timestamp,
+                    // 支付签名时间戳，注意微信jssdk中的所有使用timestamp字段均为小写。但最新版的支付后台生成签名使用的timeStamp字段名需大写其中的S字符
+                    nonceStr: data.nonceStr, // 支付签名随机串，不长于 32 位
+                    package: data.package, // 统一支付接口返回的prepay_id参数值，提交格式如：prepay_id=\*\*\*）
+                    signType: data.signType, // 签名方式，默认为'SHA1'，使用新版支付需传入'MD5'
+                    paySign: data.paySign, // 支付签名
+                    success(res) {
+                      // 支付成功后的回调函数
+                      alert(JSON.stringify(res));
+                    },
+                    cancel(err) {
+                      alert(JSON.stringify(err));
+                    },
+                  });
+                });
+              });
+          }}
+        >发起支付请求</button>
       </div>
     );
   }
