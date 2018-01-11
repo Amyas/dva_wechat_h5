@@ -83,6 +83,7 @@ export default class Index extends React.Component {
               total_fee: 0.01,
               goods: JSON.stringify([{
                 id: 7,
+                title: '拉面',
                 attr: JSON.stringify([{ type: 'radio', classify: '口味', list: ['微辣'] }, { type: 'check', classify: '特殊需求', list: ['不要香菜', '不要葱花'] }]),
               }]),
               content: '老板！！！上餐了！！！！！！！',
