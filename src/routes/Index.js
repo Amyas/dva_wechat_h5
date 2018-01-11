@@ -45,6 +45,7 @@ export default class Index extends React.Component {
         >获取localStorage</button>
         <button
           onClick={() => {
+            alert(1);
             axios.post('http://211.159.149.135:8011/wx/wx/getjsapi', {
               url: window.location.href.split('#')[0],
             })
