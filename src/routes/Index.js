@@ -6,27 +6,23 @@ import { GetQueryString } from '../utils/utils';
 
 @connect(() => ({}))
 export default class Index extends React.Component {
-  state = {
-    openid: '未获取',
-    data: null,
-  }
+  state = {}
   componentWillMount() {
     const search = this.props.location.search;
     const openid = window.localStorage.getItem('openid');
-    const code = GetQueryString('code', search);
-    if (!openid && !code) {
+    const getCode = GetQueryString('code', search);
+    if (!openid && !getCode) {
       window.location.href = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=wx232e496dad0fbb40&redirect_uri=${encodeURIComponent('http://md.amyas.cn')}&response_type=code&scope=snsapi_base&state=123#wechat_redirect`;
-    } else if (code) {
+    } else if (getCode) {
       axios.get('http://www.amyas.cn/wx/wx/userInfo', {
         params: {
-          code,
+          code: getCode,
         },
       }).then((response) => {
         const data = response.data.data;
         window.localStorage.setItem('openid', data.openid);
-        this.setState({
-          openid: data.openid,
-        });
+        window.localStorage.setItem('code', getCode);
+        window.history.back();
       });
     }
   }
@@ -37,13 +33,16 @@ export default class Index extends React.Component {
         <button
           onClick={() => {
             window.localStorage.clear();
-            this.setState({
-              openid: '已清除',
-            });
+            alert('清除成功');
           }}
-        >清除缓存</button>
-        <p>openid:{this.state.openid}</p>
-        <p>支付获取到的参数：{this.state.data && JSON.stringify(this.state.data)}</p>
+        >清除localStorage</button>
+        <button
+          onClick={() => {
+            const openid = window.localStorage.getItem('openid');
+            const code = window.localStorage.getItem('code');
+            alert(`openid:${openid},code:${code}`);
+          }}
+        >获取localStorage</button>
         <button
           onClick={() => {
             axios.post('http://211.159.149.135:8011/wx/wx/getjsapi', {
@@ -91,13 +90,9 @@ export default class Index extends React.Component {
             axios.get('http://211.159.149.135:8011/wx/wx/getPay', { params })
               .then((response) => {
                 const data = response.data.data;
-                this.setState({
-                  data,
-                });
                 data.timestamp = data.timeStamp.toString();
                 delete data.timeStamp;
                 window.wx.ready(() => {
-                  alert('开始支付');
                   window.wx.chooseWXPay({
                     timestamp: data.timestamp,
                     // 支付签名时间戳，注意微信jssdk中的所有使用timestamp字段均为小写。但最新版的支付后台生成签名使用的timeStamp字段名需大写其中的S字符
